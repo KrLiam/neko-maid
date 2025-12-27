@@ -1,0 +1,28 @@
+import "global_theme";
+
+var sky: #7777ff;
+
+style div +pressed {
+  background_color: red;
+}
+
+style div +hovered !disabled {
+  with p {
+    text-size: 16;
+  }
+}
+
+layout div {
+  +outer-menu
+
+  background_color: $sky;
+  anchor: top-left;
+
+  with div {
+    // Comment
+
+    anchor: top;
+    width: 150px;
+    height: 100px;
+  }
+}
