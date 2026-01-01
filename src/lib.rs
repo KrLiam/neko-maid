@@ -26,7 +26,12 @@ impl Plugin for NekoMaidPlugin {
                 (
                     systems::spawn_tree.in_set(NekoMaidSystems::UpdateTree),
                     systems::update_tree.in_set(NekoMaidSystems::AssetListener),
+                    systems::asset_failure.in_set(NekoMaidSystems::AssetListener),
                 ),
+            )
+            .configure_sets(
+                Update,
+                NekoMaidSystems::AssetListener.before(NekoMaidSystems::UpdateTree),
             );
     }
 }

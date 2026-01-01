@@ -5,7 +5,7 @@ use std::fmt;
 use bevy::color::Color;
 
 use crate::parse::NekoMaidParseError;
-use crate::parse::property::PropertyValue;
+use crate::parse::value::PropertyValue;
 
 /// A token with its type and position.
 #[derive(Debug, Clone, PartialEq)]
@@ -350,7 +350,10 @@ impl TokenType {
 
     /// Returns true if the token type represents a string value.
     pub fn has_string(&self) -> bool {
-        matches!(self, TokenType::Identifier | TokenType::StringLiteral)
+        matches!(
+            self,
+            TokenType::Identifier | TokenType::StringLiteral | TokenType::Variable
+        )
     }
 
     /// Returns true if the token type represents a numeric value.

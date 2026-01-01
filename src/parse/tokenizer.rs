@@ -1,6 +1,6 @@
 //! A tokenizer for parsing source code into tokens.
 
-use bevy::color::Color;
+use bevy::color::Srgba;
 use lazy_static::lazy_static;
 use regex::Regex;
 
@@ -30,16 +30,16 @@ lazy_static! {
 
         // literals
         (TokenType::BooleanLiteral,  Regex::new(r"^\s*([Tt]rue|[Ff]alse)\b").unwrap()),
-        (TokenType::ColorLiteral,    Regex::new(r"^\s*#([a-fA-F0-9]{8}|[a-fA-F0-9]{6}|[a-fA-F0-9]{3})\b").unwrap()),
-        (TokenType::NumberLiteral,   Regex::new(r"^\s*(-?\d+\.?\d*|-?\d*\.\d+)\b").unwrap()),
-        (TokenType::PercentLiteral,  Regex::new(r"^\s*(-?\d+\.?\d*|-?\d*\.\d+)%\b").unwrap()),
+        (TokenType::ColorLiteral,    Regex::new(r"^\s*#([a-fA-F0-9]{8}|[a-fA-F0-9]{6}|[a-fA-F0-9]{4}|[a-fA-F0-9]{3})\b").unwrap()),
+        (TokenType::PercentLiteral,  Regex::new(r"^\s*(-?\d+\.?\d*|-?\d*\.\d+)%").unwrap()),
         (TokenType::PixelsLiteral,   Regex::new(r"^\s*(-?\d+\.?\d*|-?\d*\.\d+)px\b").unwrap()),
+        (TokenType::NumberLiteral,   Regex::new(r"^\s*(-?\d+\.?\d*|-?\d*\.\d+)\b").unwrap()),
         (TokenType::StringLiteral,   Regex::new(r#"^\s*"(.*)""#).unwrap()),
         (TokenType::StringLiteral,   Regex::new(r#"^\s*'(.*)'"#).unwrap()),
         (TokenType::StringLiteral,   Regex::new(r#"^\s*`(.*)`"#).unwrap()),
 
         // non-literals
-        (TokenType::Variable,        Regex::new(r#"^\s*\$([a-zA-Z_][a-zA-Z0-9_-]*)"#).unwrap()),
+        (TokenType::Variable,        Regex::new(r"^\s*\$([a-zA-Z_][a-zA-Z0-9_-]*)").unwrap()),
         (TokenType::Identifier,      Regex::new(r"^\s*([a-zA-Z_][a-zA-Z0-9_-]*)").unwrap()),
 
         // ignore
@@ -159,7 +159,10 @@ fn try_token(
 
         if token_type.has_color() {
             let matched_str = &code[start .. end];
-            token.value = TokenValue::Color(hex_color(matched_str));
+            let color = Srgba::hex(matched_str)
+                .expect("Hex code Validated by regex")
+                .into();
+            token.value = TokenValue::Color(color);
         }
 
         Some(token)
@@ -199,58 +202,9 @@ fn try_regex(re: &Regex, code: &str, offset: usize) -> Option<(usize, usize, usi
     None
 }
 
-/// Converts a hexadecimal string to a Color.
-///
-/// Supports the following formats:
-/// - RGB (e.g., "FFF")
-/// - RRGGBB (e.g., "FFFFFF")
-/// - RRGGBBAA (e.g., "FFFFFFFF")
-fn hex_color(hex: &str) -> Color {
-    match hex.len() {
-        3 => {
-            let r = hex_to_byte(&hex[0 .. 1].repeat(2));
-            let g = hex_to_byte(&hex[1 .. 2].repeat(2));
-            let b = hex_to_byte(&hex[2 .. 3].repeat(2));
-            Color::srgb_u8(r, g, b)
-        }
-        6 => {
-            let r = hex_to_byte(&hex[0 .. 2]);
-            let g = hex_to_byte(&hex[2 .. 4]);
-            let b = hex_to_byte(&hex[4 .. 6]);
-            Color::srgb_u8(r, g, b)
-        }
-        8 => {
-            let r = hex_to_byte(&hex[0 .. 2]);
-            let g = hex_to_byte(&hex[2 .. 4]);
-            let b = hex_to_byte(&hex[4 .. 6]);
-            let a = hex_to_byte(&hex[6 .. 8]);
-            Color::srgba_u8(r, g, b, a)
-        }
-        _ => panic!("Invalid hex color format!"),
-    }
-}
-
-/// Converts a hexadecimal string to a byte. Returns an error if the format is
-/// invalid, or cannot be stored within a byte.
-fn hex_to_byte(str: &str) -> u8 {
-    u8::from_str_radix(str, 16).expect("Invalid hexadecimal format")
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_hex_to_color() {
-        assert_eq!(hex_color("#FFF"), Color::srgb_u8(255, 255, 255));
-        assert_eq!(hex_color("#0F0"), Color::srgb_u8(0, 255, 0));
-        assert_eq!(hex_color("#000"), Color::srgb_u8(0, 0, 0));
-        assert_eq!(hex_color("#Ff0000"), Color::srgb_u8(255, 0, 0));
-        assert_eq!(hex_color("#00fF00"), Color::srgb_u8(0, 255, 0));
-        assert_eq!(hex_color("#0000ff"), Color::srgb_u8(0, 0, 255));
-        assert_eq!(hex_color("#FFFFffff"), Color::srgba_u8(255, 255, 255, 255));
-        assert_eq!(hex_color("#00000000"), Color::srgba_u8(0, 0, 0, 0));
-    }
 
     #[test]
     fn test_token_positions() {

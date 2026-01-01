@@ -10,9 +10,9 @@ use crate::parse::NekoMaidParseError;
 use crate::parse::element::{NekoElementBuilder, build_element};
 use crate::parse::layout::Layout;
 use crate::parse::module::Module;
-use crate::parse::property::PropertyValue;
 use crate::parse::style::Style;
 use crate::parse::token::{Token, TokenPosition, TokenType, TokenValue};
+use crate::parse::value::PropertyValue;
 use crate::parse::widget::Widget;
 
 /// Context for parsing NekoMaid UI files.

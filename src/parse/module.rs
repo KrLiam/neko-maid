@@ -7,9 +7,10 @@ use crate::parse::context::{NekoResult, ParseContext};
 use crate::parse::element::NekoElementBuilder;
 use crate::parse::import::parse_import;
 use crate::parse::layout::parse_layout;
-use crate::parse::property::{PropertyValue, parse_variable};
+use crate::parse::property::parse_variable;
 use crate::parse::style::{Selector, Style, parse_style};
 use crate::parse::token::TokenType;
+use crate::parse::value::PropertyValue;
 use crate::parse::widget::{Widget, parse_widget};
 
 /// A NekoMaid UI module.

@@ -4,8 +4,9 @@ use bevy::platform::collections::{HashMap, HashSet};
 
 use crate::parse::NekoMaidParseError;
 use crate::parse::context::{NekoResult, ParseContext};
-use crate::parse::property::{PropertyValue, parse_property};
+use crate::parse::property::parse_property;
 use crate::parse::token::TokenType;
+use crate::parse::value::PropertyValue;
 
 /// A NekoMaid UI style definition.
 #[derive(Debug, Clone, PartialEq)]

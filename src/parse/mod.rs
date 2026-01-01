@@ -18,6 +18,7 @@ pub mod property;
 pub mod style;
 pub mod token;
 pub mod tokenizer;
+pub mod value;
 pub mod widget;
 
 /// A parser for NekoMaid UI files.

@@ -2,12 +2,13 @@
 
 use std::fmt;
 
-use bevy::color::Color;
 use bevy::platform::collections::HashMap;
+use bevy::prelude::*;
 
 use crate::parse::NekoMaidParseError;
 use crate::parse::context::{NekoResult, ParseContext};
 use crate::parse::token::TokenType;
+use crate::parse::value::PropertyValue;
 
 /// A property within a style or element.
 #[derive(Debug, Clone, PartialEq)]
@@ -17,78 +18,6 @@ pub struct Property {
 
     /// The value of the property.
     pub value: PropertyValue,
-}
-
-/// A value of a NekoMaid UI element property.
-#[derive(Debug, Clone, PartialEq)]
-pub enum PropertyValue {
-    /// A string value.
-    String(String),
-
-    /// A numeric value.
-    Number(f64),
-
-    /// A boolean value.
-    Bool(bool),
-
-    /// A color value.
-    Color(Color),
-
-    /// A percentage number value.
-    Percent(f64),
-
-    /// A pixel number value.
-    Pixels(f64),
-}
-
-impl PropertyValue {
-    /// Returns the type of this property value.
-    pub fn value_type(&self) -> PropertyType {
-        match self {
-            PropertyValue::String(_) => PropertyType::String,
-            PropertyValue::Number(_) => PropertyType::Number,
-            PropertyValue::Bool(_) => PropertyType::Boolean,
-            PropertyValue::Color(_) => PropertyType::Color,
-            PropertyValue::Percent(_) => PropertyType::Percentage,
-            PropertyValue::Pixels(_) => PropertyType::Pixels,
-        }
-    }
-}
-
-impl From<String> for PropertyValue {
-    fn from(value: String) -> Self {
-        PropertyValue::String(value)
-    }
-}
-
-impl From<&String> for PropertyValue {
-    fn from(value: &String) -> Self {
-        PropertyValue::String(value.clone())
-    }
-}
-
-impl From<&str> for PropertyValue {
-    fn from(value: &str) -> Self {
-        PropertyValue::String(value.to_string())
-    }
-}
-
-impl From<f64> for PropertyValue {
-    fn from(value: f64) -> Self {
-        PropertyValue::Number(value)
-    }
-}
-
-impl From<bool> for PropertyValue {
-    fn from(value: bool) -> Self {
-        PropertyValue::Bool(value)
-    }
-}
-
-impl From<Color> for PropertyValue {
-    fn from(value: Color) -> Self {
-        PropertyValue::Color(value)
-    }
 }
 
 /// A property within a style or element.

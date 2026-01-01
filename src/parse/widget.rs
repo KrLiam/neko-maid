@@ -1,20 +1,19 @@
 //! A module for parsing NekoMaid UI widget definitions.
 
+use std::sync::Arc;
+
+use bevy::asset::AssetServer;
 use bevy::ecs::entity::Entity;
-use bevy::ecs::system::Commands;
+use bevy::ecs::system::{Commands, Res};
 use bevy::platform::collections::{HashMap, HashSet};
 
 use crate::parse::NekoMaidParseError;
 use crate::parse::class::parse_class;
 use crate::parse::context::{NekoResult, ParseContext};
 use crate::parse::element::NekoElement;
-use crate::parse::property::{
-    PropertyValue,
-    UnresolvedPropertyValue,
-    parse_unresolved_property,
-    parse_variable,
-};
+use crate::parse::property::{UnresolvedPropertyValue, parse_unresolved_property, parse_variable};
 use crate::parse::token::TokenType;
+use crate::parse::value::PropertyValue;
 
 /// A NekoMaid UI widget definition.
 #[derive(Debug, Clone, PartialEq)]
@@ -51,7 +50,7 @@ pub struct CustomWidget {
     pub name: String,
 
     /// The default properties of the widget.
-    pub properties: HashMap<String, PropertyValue>,
+    pub default_properties: HashMap<String, PropertyValue>,
 
     /// The layout of the widget.
     pub layout: WidgetLayout,
@@ -60,7 +59,7 @@ pub struct CustomWidget {
 impl CustomWidget {
     /// Checks if the widget has a property with the given name.
     pub fn has_property(&self, property_name: &str) -> bool {
-        self.properties.get(property_name).is_some()
+        self.default_properties.get(property_name).is_some()
     }
 }
 
@@ -71,25 +70,25 @@ pub struct NativeWidget {
     pub name: String,
 
     /// The default properties of the widget.
-    pub properties: HashMap<String, PropertyValue>,
+    pub default_properties: Arc<HashMap<String, PropertyValue>>,
 
     /// The function used to spawn the widget.
     ///
     /// This function takes a mutable reference to `Commands` and the parent
     /// entity, and returns the spawned widget entity.
-    pub spawn_func: fn(&mut Commands, parent: Entity, element: &NekoElement) -> Entity,
+    pub spawn_func: fn(&Res<AssetServer>, &mut Commands, &NekoElement, Entity) -> Entity,
 }
 
 impl NativeWidget {
     /// Checks if the widget has a property with the given name.
     pub fn has_property(&self, property_name: &str) -> bool {
-        self.properties.get(property_name).is_some()
+        self.default_properties.get(property_name).is_some()
     }
 }
 
 impl PartialEq<NativeWidget> for NativeWidget {
     fn eq(&self, other: &NativeWidget) -> bool {
-        self.name == other.name && self.properties == other.properties
+        self.name == other.name
     }
 }
 
@@ -180,7 +179,7 @@ pub fn parse_widget(ctx: &mut ParseContext) -> NekoResult<Widget> {
 
     Ok(Widget::Custom(CustomWidget {
         name,
-        properties,
+        default_properties: properties,
         layout,
     }))
 }

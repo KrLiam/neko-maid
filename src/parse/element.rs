@@ -1,5 +1,7 @@
 //! A module for parsing and representing NekoMaid UI finalized elements.
 
+use std::sync::Arc;
+
 use bevy::ecs::component::Component;
 use bevy::platform::collections::{HashMap, HashSet};
 
@@ -7,9 +9,9 @@ use crate::parse::NekoMaidParseError;
 use crate::parse::class::{ClassPath, ClassSet};
 use crate::parse::context::NekoResult;
 use crate::parse::layout::Layout;
-use crate::parse::property::PropertyValue;
 use crate::parse::style::Style;
 use crate::parse::token::TokenPosition;
+use crate::parse::value::PropertyValue;
 use crate::parse::widget::{NativeWidget, Widget, WidgetLayout};
 
 /// A temporary builder for NekoMaid UI elements for easier construction.
@@ -36,18 +38,12 @@ pub struct NekoElement {
 
     /// The properties applied to this element.
     properties: HashMap<String, PropertyValue>,
+
+    /// The default properties of this element, from the native widget.
+    default_properties: Arc<HashMap<String, PropertyValue>>,
 }
 
 impl NekoElement {
-    /// Creates a new NekoElement with the given class path and styles.
-    pub fn new(classpath: ClassPath) -> Self {
-        Self {
-            classpath,
-            styles: Vec::new(),
-            properties: HashMap::new(),
-        }
-    }
-
     /// Returns a reference to the class path of this element.
     pub fn classpath(&self) -> &ClassPath {
         &self.classpath
@@ -77,9 +73,9 @@ impl NekoElement {
 
     /// Tries to add a style to the styles applied to this element. If the style
     /// has a selector that cannot match this element, it will not be added.
-    pub fn try_add_style(&mut self, style: Style) {
+    pub fn try_add_style(&mut self, style: &Style) {
         if self.classpath.partial_matches(style.selector()) {
-            self.styles.insert(0, style);
+            self.styles.insert(0, style.clone());
         }
     }
 
@@ -106,7 +102,48 @@ impl NekoElement {
             }
         }
 
-        None
+        self.default_properties.get(name)
+    }
+
+    /// Attempts to get a property and automatically convert it to the desired
+    /// type. If the property is not found, returns the default value for the
+    /// type.
+    pub fn get_as<'a, O>(&'a self, name: &str) -> O
+    where
+        O: From<&'a PropertyValue> + Default,
+    {
+        self.get_property(name).map(Into::into).unwrap_or_default()
+    }
+
+    /// Attempts to get a property and automatically convert it to the desired
+    /// type. If the property is not found, returns the provided default value.
+    pub fn get_as_or<'a, O>(&'a self, name: &str, def: O) -> O
+    where
+        O: From<&'a PropertyValue>,
+    {
+        self.get_property(name).map(Into::into).unwrap_or(def)
+    }
+
+    /// Attempts to get a property, ignoring all default values provided by the
+    /// native widget, and automatically convert it to the desired type. If the
+    /// property is not found, returns the provided value.
+    pub fn get_no_default<'a, O>(&'a self, name: &str, def: O) -> O
+    where
+        O: From<&'a PropertyValue>,
+    {
+        if let Some(value) = self.properties.get(name) {
+            return value.into();
+        };
+
+        for style in &self.styles {
+            if let Some(value) = style.get_property(name)
+                && self.classpath.matches(style.selector())
+            {
+                return value.into();
+            }
+        }
+
+        def
     }
 }
 
@@ -151,14 +188,15 @@ pub fn build_element(
                 )?);
             }
 
-            let mut element = NekoElement::new(classpath);
+            let mut element = NekoElement {
+                classpath,
+                styles: Vec::new(),
+                properties: layout.properties,
+                default_properties: native_widget.default_properties.clone(),
+            };
 
             for style in styles {
-                element.try_add_style(style.clone());
-            }
-
-            for (name, value) in layout.properties {
-                element.set_property(name, value);
+                element.try_add_style(style);
             }
 
             Ok(NekoElementBuilder {
@@ -168,16 +206,20 @@ pub fn build_element(
             })
         }
         Widget::Custom(custom_widget) => {
-            let mut custom_properties = global_variables.clone();
+            let mut local_variables = global_variables.clone();
+
+            for (name, value) in custom_widget.default_properties {
+                local_variables.insert(name, value);
+            }
+
             for (name, value) in layout.properties {
-                custom_properties.insert(name, value);
+                local_variables.insert(name, value);
             }
 
             build_widget(
-                global_variables,
+                &local_variables,
                 styles,
                 widgets,
-                custom_properties,
                 custom_widget.layout,
                 &mut layout.children,
                 classpath,
@@ -189,10 +231,9 @@ pub fn build_element(
 /// Builds a [`NekoElementBuilder`] from the given styles and custom widget
 /// layout.
 fn build_widget(
-    global_variables: &HashMap<String, PropertyValue>,
+    variables: &HashMap<String, PropertyValue>,
     styles: &[Style],
     widgets: &HashMap<String, Widget>,
-    custom_properties: HashMap<String, PropertyValue>,
     layout: WidgetLayout,
     original_children: &mut Vec<Layout>,
     classpath: Option<ClassPath>,
@@ -222,10 +263,9 @@ fn build_widget(
             let mut children = Vec::new();
             for child in layout.children {
                 children.push(build_widget(
-                    global_variables,
+                    variables,
                     styles,
                     widgets,
-                    global_variables.clone(),
                     child,
                     original_children,
                     Some(classpath.clone()),
@@ -235,7 +275,7 @@ fn build_widget(
             if layout.is_output {
                 for child in original_children.drain(..) {
                     children.push(build_element(
-                        global_variables,
+                        variables,
                         styles,
                         widgets,
                         child,
@@ -244,14 +284,19 @@ fn build_widget(
                 }
             }
 
-            let mut element = NekoElement::new(classpath);
+            let mut element = NekoElement {
+                classpath,
+                styles: Vec::new(),
+                properties: HashMap::new(),
+                default_properties: native_widget.default_properties.clone(),
+            };
 
             for style in styles {
-                element.try_add_style(style.clone());
+                element.try_add_style(style);
             }
 
             for (name, value) in layout.properties {
-                let value = value.resolve(&custom_properties)?;
+                let value = value.resolve(variables)?;
                 element.set_property(name, value);
             }
 
@@ -262,17 +307,21 @@ fn build_widget(
             })
         }
         Widget::Custom(custom_widget) => {
-            let mut inner_custom_properties = global_variables.clone();
+            let mut local_variables = variables.clone();
+
+            for (name, value) in custom_widget.default_properties {
+                local_variables.insert(name, value);
+            }
+
             for (name, value) in layout.properties {
-                let value = value.resolve(&custom_properties)?;
-                inner_custom_properties.insert(name, value);
+                let value = value.resolve(&local_variables)?;
+                local_variables.insert(name, value);
             }
 
             build_widget(
-                global_variables,
+                &local_variables,
                 styles,
                 widgets,
-                inner_custom_properties,
                 custom_widget.layout,
                 original_children,
                 classpath,
