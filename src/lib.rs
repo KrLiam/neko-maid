@@ -14,6 +14,7 @@ pub mod marker;
 pub mod native;
 pub mod parse;
 pub mod render;
+pub mod value;
 
 /// A Bevy UI plugin: NekoMaid
 ///
